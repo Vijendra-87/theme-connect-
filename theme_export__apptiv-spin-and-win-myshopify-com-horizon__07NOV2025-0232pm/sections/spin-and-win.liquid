@@ -1,0 +1,29 @@
+
+{% schema %}
+{
+  "name": "Spin & Win Popup",
+  "settings": [],
+  "presets": [
+    { "name": "ac Spin & Win" }
+  ]
+}
+{% endschema %}
+
+<script>
+ var ACDiscountApp = ACDiscountApp || {};ACDiscountApp.Reward = ACDiscountApp.Reward || {}
+  ACDiscountApp.Reward.GlobalFields = function () {
+  this.spin_wheel_rewards = {{ shop.metafields.ACPTiered.SpinAndWin.value | json}}
+  this.customer = {
+    customerId : "{{ customer.id | default: "" }}",
+    customerEmail:"{{ customer.email | default: "" }}",
+    customerTags :{{ customer.tags | json | default: "[]" }}
+  }
+  }
+var globalFieldsReward = new ACDiscountApp.Reward.GlobalFields();
+</script>
+
+<div id="spin-win-root"></div>
+
+{{ 'ac-spin-and-win.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'ac-spin-and-win.js' | asset_url }}" defer></script>
+

@@ -1,0 +1,279 @@
+{% schema %}
+{
+  "name": "Spin & Win Popup",
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "auto_open",
+      "label": "Open popup automatically on page load",
+      "default": false
+    },
+    {
+      "type": "text",
+      "id": "trigger_button_text",
+      "label": "Trigger Button Text",
+      "default": "Open Spin & Win"
+    },
+    {
+      "type": "color",
+      "id": "background_color",
+      "label": "Popup Background Color",
+      "default": "#ffffff"
+    },
+    {
+      "type": "color",
+      "id": "wheel_border_color",
+      "label": "Wheel Border Color",
+      "default": "#333333"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "Text Color",
+      "default": "#333333"
+    },
+    {
+      "type": "color",
+      "id": "button_color",
+      "label": "Spin Button Color",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "button_text_color",
+      "label": "Spin Button Text Color",
+      "default": "#ffffff"
+    },
+    {
+      "type": "text",
+      "id": "button_label",
+      "label": "Spin Button Label",
+      "default": "Spin Now"
+    }
+  ],
+  "presets": [
+    {
+      "name": "Spin & Win Popup"
+    }
+  ]
+}
+{% endschema %}
+
+<button id="openSpinPopup" class="spin-open-btn">
+  {{ section.settings.trigger_button_text }}
+</button>
+
+<div id="spinPopup" class="spin-popup">
+  <div class="spin-popup-content" style="background-color: {{ section.settings.background_color }};">
+    <span class="close-popup">&times;</span>
+
+    <div class="spin-win-container">
+      <div class="wheel" id="spinWheel" style="border: 6px solid {{ section.settings.wheel_border_color }};">
+        <canvas id="wheelCanvas" width="300" height="300"></canvas>
+        <div class="pointer"></div>
+      </div>
+      <button id="spinButton" 
+        style="background-color: {{ section.settings.button_color }}; color: {{ section.settings.button_text_color }};">
+        {{ section.settings.button_label }}
+      </button>
+      <div id="resultMessage" class="result-message" style="color: {{ section.settings.text_color }};"></div>
+    </div>
+  </div>
+</div>
+
+<style>
+/* Popup Overlay */
+.spin-popup {
+  display: none;
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background-color: rgba(0,0,0,0.6);
+  z-index: 9999;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Popup Content */
+.spin-popup-content {
+  position: relative;
+  padding: 40px 20px;
+  border-radius: 20px;
+  max-width: 400px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 5px 25px rgba(0,0,0,0.3);
+  animation: fadeInUp 0.4s ease;
+}
+
+.close-popup {
+  position: absolute;
+  top: 10px; right: 15px;
+  font-size: 26px;
+  cursor: pointer;
+  color: #555;
+}
+
+/* Wheel Styles */
+.wheel {
+  position: relative;
+  margin: 0 auto 20px;
+  border-radius: 50%;
+  overflow: hidden;
+}
+.pointer {
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 12px solid transparent;
+  border-right: 12px solid transparent;
+  border-bottom: 20px solid {{ section.settings.wheel_border_color }};
+  z-index: 2;
+}
+
+#spinButton {
+  padding: 12px 30px;
+  border: none;
+  border-radius: 30px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: 0.3s ease;
+}
+#spinButton:hover {
+  transform: scale(1.05);
+}
+.result-message {
+  font-size: 18px;
+  font-weight: 500;
+  margin-top: 20px;
+  min-height: 24px;
+}
+.spin-open-btn {
+  display: inline-block;
+  padding: 12px 30px;
+  border: none;
+  border-radius: 30px;
+  cursor: pointer;
+  background-color: #000;
+  color: #fff;
+  transition: 0.3s;
+}
+.spin-open-btn:hover {
+  transform: scale(1.05);
+}
+
+/* Animation */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+</style>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  const popup = document.getElementById("spinPopup");
+  const openBtn = document.getElementById("openSpinPopup");
+  const closeBtn = popup.querySelector(".close-popup");
+  const canvas = document.getElementById("wheelCanvas");
+  const ctx = canvas.getContext("2d");
+  const spinButton = document.getElementById("spinButton");
+  const resultMessage = document.getElementById("resultMessage");
+  const autoOpen = {{ section.settings.auto_open | json }};
+
+  // Rewards with probability
+  const rewards = [
+    { label: "5% Off", color: "#FFB703", probability: 0.25 },
+    { label: "10% Off", color: "#FB8500", probability: 0.20 },
+    { label: "Free Shipping", color: "#FF595E", probability: 0.15 },
+    { label: "No Luck", color: "#8ECAE6", probability: 0.25 },
+    { label: "15% Off", color: "#219EBC", probability: 0.10 },
+    { label: "Try Again", color: "#023047", probability: 0.05 }
+  ];
+
+  const arc = (2 * Math.PI) / rewards.length;
+  let startAngle = 0;
+  let spinning = false;
+
+  // Draw Wheel
+  function drawWheel() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    rewards.forEach((r, i) => {
+      const angle = startAngle + i * arc;
+      ctx.beginPath();
+      ctx.fillStyle = r.color;
+      ctx.moveTo(150, 150);
+      ctx.arc(150, 150, 150, angle, angle + arc);
+      ctx.lineTo(150, 150);
+      ctx.fill();
+
+      // text
+      ctx.save();
+      ctx.fillStyle = "#fff";
+      ctx.translate(150 + Math.cos(angle + arc/2) * 100, 150 + Math.sin(angle + arc/2) * 100);
+      ctx.rotate(angle + arc/2 + Math.PI/2);
+      ctx.font = "14px Arial";
+      ctx.fillText(r.label, -ctx.measureText(r.label).width / 2, 0);
+      ctx.restore();
+    });
+  }
+
+  // Weighted random
+  function getWeightedRandomReward() {
+    const rand = Math.random();
+    let sum = 0;
+    for (let i = 0; i < rewards.length; i++) {
+      sum += rewards[i].probability;
+      if (rand < sum) return i;
+    }
+    return rewards.length - 1;
+  }
+
+  // Spin logic
+  function spinWheel() {
+    if (spinning) return;
+    spinning = true;
+    resultMessage.textContent = "";
+
+    const selectedIndex = getWeightedRandomReward();
+    const spins = 5;
+    const randomOffset = Math.random() * (arc - 0.1);
+    const targetAngle = 2 * Math.PI * spins + (2 * Math.PI - (selectedIndex * arc + arc / 2) + randomOffset);
+    const duration = 4000;
+    const start = performance.now();
+
+    function animate(time) {
+      const progress = Math.min((time - start) / duration, 1);
+      const easeOut = 1 - Math.pow(1 - progress, 3);
+      startAngle = targetAngle * easeOut;
+      drawWheel();
+
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      } else {
+        spinning = false;
+        resultMessage.textContent = "🎉 You won: " + rewards[selectedIndex].label;
+      }
+    }
+
+    requestAnimationFrame(animate);
+  }
+
+  // Popup logic
+  function openPopup() { popup.style.display = "flex"; drawWheel(); }
+  function closePopup() { popup.style.display = "none"; }
+
+  openBtn.addEventListener("click", openPopup);
+  closeBtn.addEventListener("click", closePopup);
+  spinButton.addEventListener("click", spinWheel);
+  window.addEventListener("click", (e) => { if (e.target === popup) closePopup(); });
+
+  if (autoOpen) {
+    setTimeout(openPopup, 1500);
+  }
+
+  drawWheel();
+});
+</script>
